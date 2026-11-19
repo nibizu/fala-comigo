@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Fala Comigo">
+<meta name="theme-color" content="#eceff6">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style id="standalone-only">
+  :root{ padding: env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); color-scheme: light; }
+  html,body{ height:100%; }
+  body{ margin:0; }
+  img{ max-width:100%; }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+<!--ARTIFACT-START-->
+<title>Fala Comigo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,600;0,800;0,900&display=swap">
+<style>
+  /* Layout: prancha de comunicação em tela cheia — grade de botões que ocupa todo o espaço,
+     barra fina embaixo para navegar entre pranchas, editor em camada sobreposta.
+     Tema único e claro, de propósito: a criança deve ver sempre as mesmas cores. */
+  :root{
+    --bg:#eceff6;
+    --surface:#ffffff;
+    --ink:#17202f;
+    --muted:#5f6c80;
+    --line:#d3dae6;
+    --accent:#2f62c4;
+    --danger:#c0392b;
+    --font:"Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color-scheme: light;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font);
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+
+  #app{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    padding-left:max(10px, env(safe-area-inset-left,0px));
+    padding-right:max(10px, env(safe-area-inset-right,0px));
+  }
+
+  /* ---- prancha ---- */
+  .board{
+    flex:1;
+    min-height:0;
+    display:grid;
+    grid-template-columns:repeat(var(--cols,2), 1fr);
+    grid-auto-rows:1fr;
+    gap:12px;
+    padding-block:12px;
+  }
+  .board.anim-left{ animation:slideL .22s ease-out; }
+  .board.anim-right{ animation:slideR .22s ease-out; }
+  @keyframes slideL{ from{ transform:translateX(18%); opacity:.3 } to{ transform:none; opacity:1 } }
+  @keyframes slideR{ from{ transform:translateX(-18%); opacity:.3 } to{ transform:none; opacity:1 } }
+
+  .tile{
+    border:0;
+    border-radius:30px;
+    color:#fff;
+    font-family:var(--font);
+    font-weight:900;
+    font-size:var(--fs, 32px);
+    line-height:1.05;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:.12em;
+    padding:.3em;
+    text-align:center;
+    min-width:0;
+    overflow:hidden;
+    touch-action:manipulation;
+    box-shadow:0 7px 0 rgba(0,0,0,.16), 0 12px 26px rgba(20,35,60,.16);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .tile:active{ transform:translateY(5px); box-shadow:0 2px 0 rgba(0,0,0,.16), 0 4px 10px rgba(20,35,60,.14); }
+  .tile .emoji{ font-size:1.45em; line-height:1; }
+  .tile .label{ display:block; max-width:100%; word-break:break-word; }
+  .tile.speaking{ box-shadow:0 7px 0 rgba(0,0,0,.16), 0 0 0 7px rgba(255,255,255,.85), 0 12px 26px rgba(20,35,60,.2); }
+  @media (prefers-reduced-motion: reduce){
+    .tile{ transition:none } .board.anim-left,.board.anim-right{ animation:none }
+  }
+
+  .empty{
+    grid-column:1/-1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    color:var(--muted); font-weight:700; font-size:17px; text-align:center;
+  }
+
+  /* ---- barra inferior ---- */
+  .bar{
+    flex:0 0 auto;
+    display:flex; align-items:center; gap:10px;
+    padding-block:6px 10px;
+  }
+  .bar .name{
+    font-size:13px; font-weight:800; color:var(--muted);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:38%;
+  }
+  .dots{ flex:1; display:flex; justify-content:center; align-items:center; gap:9px; }
+  .dot{
+    width:11px; height:11px; border-radius:50%; border:0; padding:0;
+    background:#bcc6d6; touch-action:manipulation;
+  }
+  .dot.on{ background:var(--accent); transform:scale(1.25); }
+  .gear{
+    position:relative; width:44px; height:44px; flex:0 0 auto;
+    border-radius:50%; border:1px solid var(--line); background:var(--surface);
+    color:var(--muted); font-size:19px; line-height:1;
+    display:grid; place-items:center; touch-action:none; overflow:hidden;
+  }
+  .gear .fill{
+    position:absolute; inset:auto 0 0 0; height:0%; background:var(--accent); opacity:.25;
+  }
+  .gear.holding .fill{ height:100%; transition:height .7s linear; }
+
+  /* ---- editor ---- */
+  #editor{
+    position:fixed; inset:0; z-index:20; background:var(--bg);
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:
+      calc(env(safe-area-inset-top,0px) + 12px)
+      max(14px, env(safe-area-inset-right,0px))
+      calc(env(safe-area-inset-bottom,0px) + 28px)
+      max(14px, env(safe-area-inset-left,0px));
+    user-select:text; -webkit-user-select:text;
+  }
+  .ed-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:14px;
+  }
+  .ed-head h1{ font-size:21px; margin:0; font-weight:900; letter-spacing:-.01em; }
+  .btn{
+    font-family:var(--font); font-weight:800; font-size:15px;
+    border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+    padding:10px 14px; touch-action:manipulation;
+  }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.ghost{ background:transparent; }
+  .btn.danger{ color:var(--danger); border-color:#e8c4bf; }
+  .btn.small{ font-size:13px; padding:7px 10px; border-radius:10px; }
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:18px;
+    padding:14px; margin-bottom:14px;
+  }
+  .card > h2{
+    font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--muted);
+    margin:0 0 10px; font-weight:800;
+  }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{
+    font-family:var(--font); font-weight:800; font-size:14px;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink);
+    border-radius:999px; padding:8px 14px; touch-action:manipulation;
+  }
+  .chip.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .chip.add{ border-style:dashed; color:var(--accent); }
+
+  label.field{ display:block; margin-bottom:10px; }
+  label.field > span{ display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:4px; }
+  input[type=text], select, textarea{
+    width:100%; font-family:var(--font); font-size:16px; font-weight:600; color:var(--ink);
+    background:#fff; border:1px solid var(--line); border-radius:11px; padding:10px 12px;
+  }
+  textarea{ min-height:90px; resize:vertical; }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+
+  .item{
+    display:grid;
+    grid-template-columns:62px 1fr auto;
+    gap:8px; align-items:center;
+    padding:10px 0; border-top:1px solid var(--line);
+  }
+  .item:first-of-type{ border-top:0; }
+  .item .swatch{
+    width:62px; height:62px; border-radius:16px; border:0; color:#fff;
+    font-size:26px; display:grid; place-items:center; touch-action:manipulation;
+  }
+  .item .lines{ min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .item .lines input{ padding:8px 10px; font-size:15px; }
+  .item .acts{ display:flex; flex-direction:column; gap:4px; }
+  .item .acts button{
+    width:34px; height:30px; border-radius:9px; border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); font-size:14px; font-weight:800; padding:0;
+  }
+  .item .acts button.rm{ color:var(--danger); }
+
+  .palette{ display:flex; flex-wrap:wrap; gap:10px; }
+  .palette button{ width:40px; height:40px; border-radius:12px; border:3px solid transparent; }
+  .palette button.on{ border-color:var(--ink); }
+
+  .row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .hint{ font-size:13px; color:var(--muted); font-weight:600; line-height:1.5; margin:8px 0 0; }
+  .sheet{
+    position:fixed; inset:0; z-index:30; background:rgba(16,24,38,.45);
+    display:grid; place-items:end center; padding:16px;
+  }
+  .sheet .inner{
+    background:var(--surface); border-radius:20px; padding:16px; width:100%; max-width:460px;
+    margin-bottom:env(safe-area-inset-bottom,0px);
+  }
+</style>
+
+<div id="app">
+  <main class="board" id="board"></main>
+  <footer class="bar">
+    <span class="name" id="boardName"></span>
+    <nav class="dots" id="dots" aria-label="Pranchas"></nav>
+    <button class="gear" id="gear" aria-label="Segure para editar"><span class="fill"></span>⚙</button>
+  </footer>
+</div>
+
+<div id="editor" hidden>
+  <div class="ed-head">
+    <h1>Editar pranchas</h1>
+    <button class="btn primary" id="edDone">Concluir</button>
+  </div>
+
+  <section class="card">
+    <h2>Pranchas</h2>
+    <div class="chips" id="edBoards"></div>
+  </section>
+
+  <section class="card">
+    <h2>Esta prancha</h2>
+    <label class="field"><span>Nome</span><input type="text" id="edName" autocomplete="off"></label>
+    <div id="edItems"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="edAddItem">+ Adicionar botão</button>
+      <button class="btn danger" id="edDelBoard">Excluir prancha</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Voz</h2>
+    <label class="field"><span>Voz do iPhone</span><select id="edVoice"></select></label>
+    <label class="field"><span>Velocidade da fala</span><input type="range" id="edRate" min="0.5" max="1.4" step="0.05"></label>
+    <div class="row">
+      <button class="btn" id="edTest">Testar voz</button>
+    </div>
+    <p class="hint" id="voiceHint"></p>
+  </section>
+
+  <section class="card">
+    <h2>Cópia de segurança</h2>
+    <div class="row">
+      <button class="btn" id="edCopy">Copiar minhas pranchas</button>
+      <button class="btn ghost" id="edRestoreToggle">Restaurar de um texto</button>
+    </div>
+    <div id="edRestoreBox" hidden style="margin-top:10px">
+      <textarea id="edPaste" placeholder="Cole aqui o texto da cópia de segurança"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="edRestore">Restaurar</button>
+      </div>
+    </div>
+    <p class="hint">Guarde esse texto em uma nota ou e-mail. Ele traz todas as pranchas e botões que você criou.</p>
+  </section>
+
+  <section class="card">
+    <h2>Recomeçar</h2>
+    <button class="btn danger" id="edReset">Voltar às pranchas originais</button>
+    <p class="hint">Apaga tudo que foi criado e volta para Sim/Não, Eu quero e Como eu estou.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var COLORS = {
+    verde:'#1c9b56', vermelho:'#d13030', azul:'#2063c9', amarelo:'#c08a00',
+    laranja:'#dd6116', roxo:'#6f44c0', rosa:'#c23a7e', turquesa:'#0f8c90', cinza:'#55657b'
+  };
+  var COLOR_KEYS = Object.keys(COLORS);
+  var KEY = 'fala-comigo.v1';
+
+  function defaults(){
+    return {
+      version: 1,
+      settings: { voiceURI:'', rate: 0.95 },
+      boards: [
+        { name:'Sim ou Não', items:[
+          { emoji:'👍', label:'SIM', say:'Sim', color:'verde' },
+          { emoji:'👎', label:'NÃO', say:'Não', color:'vermelho' }
+        ]},
+        { name:'Eu quero', items:[
+          { emoji:'🧸', label:'Brincar',  say:'Eu quero brincar',   color:'laranja' },
+          { emoji:'🍎', label:'Comer',    say:'Eu quero comer',     color:'verde' },
+          { emoji:'💧', label:'Água',     say:'Eu quero água',      color:'azul' },
+          { emoji:'🚻', label:'Banheiro', say:'Eu quero banheiro',  color:'turquesa' },
+          { emoji:'🎵', label:'Música',   say:'Eu quero música',    color:'roxo' },
+          { emoji:'🛏️', label:'Descansar',say:'Eu quero descansar', color:'cinza' }
+        ]},
+        { name:'Como eu estou', items:[
+          { emoji:'😀', label:'Feliz',    say:'Estou feliz',     color:'amarelo' },
+          { emoji:'😢', label:'Triste',   say:'Estou triste',    color:'azul' },
+          { emoji:'😠', label:'Bravo',    say:'Estou bravo',     color:'vermelho' },
+          { emoji:'😨', label:'Com medo', say:'Estou com medo',  color:'roxo' },
+          { emoji:'😴', label:'Cansado',  say:'Estou cansado',   color:'cinza' },
+          { emoji:'🤕', label:'Dói',      say:'Está doendo',     color:'rosa' }
+        ]}
+      ]
+    };
+  }
+
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+  function sane(data){
+    if(!data || !Array.isArray(data.boards) || !data.boards.length) return null;
+    var out = { version:1, settings:{ voiceURI:'', rate:0.95 }, boards:[] };
+    if(data.settings){
+      if(typeof data.settings.voiceURI === 'string') out.settings.voiceURI = data.settings.voiceURI;
+      var r = parseFloat(data.settings.rate);
+      if(!isNaN(r) && r >= 0.4 && r <= 1.6) out.settings.rate = r;
+    }
+    data.boards.forEach(function(b){
+      if(!b || !Array.isArray(b.items)) return;
+      var nb = { name: String(b.name || 'Prancha').slice(0,40), items: [] };
+      b.items.forEach(function(it){
+        if(!it) return;
+        nb.items.push({
+          emoji: String(it.emoji || '').slice(0,4),
+          label: String(it.label || '').slice(0,30),
+          say:   String(it.say || it.label || '').slice(0,120),
+          color: COLORS[it.color] ? it.color : 'azul'
+        });
+      });
+      out.boards.push(nb);
+    });
+    return out.boards.length ? out : null;
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var s = sane(JSON.parse(raw)); if(s) return s; }
+    }catch(e){}
+    return defaults();
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  var state = load();
+  var idx = 0;
+  var lastSwipe = 0;
+
+  var boardEl  = document.getElementById('board');
+  var nameEl   = document.getElementById('boardName');
+  var dotsEl   = document.getElementById('dots');
+  var gearEl   = document.getElementById('gear');
+  var editorEl = document.getElementById('editor');
+
+  /* ---------------- voz ---------------- */
+  var voices = [];
+  var speechOk = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+  var warmed = false;
+
+  function refreshVoices(){
+    if(!speechOk) return;
+    try{ voices = window.speechSynthesis.getVoices() || []; }catch(e){ voices = []; }
+    if(!editorEl.hidden) renderVoiceSelect();
+  }
+  if(speechOk){
+    refreshVoices();
+    window.speechSynthesis.onvoiceschanged = refreshVoices;
+    setTimeout(refreshVoices, 400);
+    setTimeout(refreshVoices, 1500);
+  }
+
+  function ptVoices(){
+    return voices.filter(function(v){ return /^pt/i.test(v.lang || ''); });
+  }
+  function pickVoice(){
+    var want = state.settings.voiceURI;
+    if(want){
+      for(var i=0;i<voices.length;i++){ if(voices[i].voiceURI === want) return voices[i]; }
+    }
+    var pt = ptVoices();
+    for(var j=0;j<pt.length;j++){ if(/pt[-_]BR/i.test(pt[j].lang)) return pt[j]; }
+    return pt[0] || null;
+  }
+
+  function warmUp(){
+    if(warmed || !speechOk) return;
+    warmed = true;
+    try{
+      var u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0; u.lang = 'pt-BR';
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  function speak(text){
+    if(!speechOk || !text) return;
+    try{
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'pt-BR';
+      var v = pickVoice();
+      if(v) u.voice = v;
+      u.rate = state.settings.rate;
+      u.pitch = 1;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  /* ---------------- prancha ---------------- */
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function renderBoard(dir){
+    if(idx >= state.boards.length) idx = state.boards.length - 1;
+    if(idx < 0) idx = 0;
+    var b = state.boards[idx];
+    var n = b.items.length;
+
+    boardEl.className = 'board';
+    if(dir === 1) boardEl.classList.add('anim-left');
+    if(dir === -1) boardEl.classList.add('anim-right');
+    boardEl.style.setProperty('--cols', n <= 2 ? 1 : (n <= 6 ? 2 : 3));
+    boardEl.style.setProperty('--fs',
+      n <= 2 ? 'clamp(38px, 11vw, 86px)' :
+      n <= 4 ? 'clamp(26px, 6.5vw, 52px)' :
+      n <= 6 ? 'clamp(21px, 5vw, 40px)' :
+               'clamp(15px, 3.4vw, 28px)');
+    boardEl.innerHTML = '';
+
+    if(!n){
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.innerHTML = '<span>Esta prancha ainda não tem botões.</span><span>Segure o ⚙ por um segundo para adicionar.</span>';
+      boardEl.appendChild(e);
+    }
+
+    b.items.forEach(function(it){
+      var btn = document.createElement('button');
+      btn.className = 'tile';
+      btn.style.background = COLORS[it.color] || COLORS.azul;
+      btn.setAttribute('aria-label', it.say || it.label);
+      btn.innerHTML = (it.emoji ? '<span class="emoji">' + esc(it.emoji) + '</span>' : '') +
+                      '<span class="label">' + esc(it.label) + '</span>';
+      btn.addEventListener('click', function(){
+        if(Date.now() - lastSwipe < 450) return;
+        speak(it.say || it.label);
+        btn.classList.add('speaking');
+        setTimeout(function(){ btn.classList.remove('speaking'); }, 650);
+      });
+      boardEl.appendChild(btn);
+    });
+
+    nameEl.textContent = b.name;
+    renderDots();
+  }
+
+  function renderDots(){
+    dotsEl.innerHTML = '';
+    if(state.boards.length < 2) return;
+    state.boards.forEach(function(b, i){
+      var d = document.createElement('button');
+      d.className = 'dot' + (i === idx ? ' on' : '');
+      d.setAttribute('aria-label', b.name);
+      d.addEventListener('click', function(){ goTo(i); });
+      dotsEl.appendChild(d);
+    });
+  }
+
+  function goTo(i, dir){
+    if(i < 0 || i >= state.boards.length || i === idx) return;
+    var d = typeof dir === 'number' ? dir : (i > idx ? 1 : -1);
+    idx = i;
+    renderBoard(d);
+  }
+  function step(delta){
+    var i = idx + delta;
+    if(i < 0 || i >= state.boards.length) return;
+    goTo(i, delta);
+  }
+
+  /* swipe */
+  var sx = 0, sy = 0, st = 0;
+  boardEl.addEventListener('touchstart', function(e){
+    var t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; st = Date.now();
+  }, { passive:true });
+  boardEl.addEventListener('touchend', function(e){
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    if(Date.now() - st < 900 && Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5){
+      lastSwipe = Date.now();
+      step(dx < 0 ? 1 : -1);
+    }
+  }, { passive:true });
+
+  document.addEventListener('keydown', function(e){
+    if(!editorEl.hidden) return;
+    if(e.key === 'ArrowRight') step(1);
+    if(e.key === 'ArrowLeft') step(-1);
+  });
+
+  document.addEventListener('pointerdown', warmUp, { once:true });
+  document.addEventListener('touchstart', warmUp, { once:true, passive:true });
+
+  /* ---------------- engrenagem: segurar para abrir ---------------- */
+  var holdTimer = null;
+  function startHold(e){
+    if(e.cancelable) e.preventDefault();
+    gearEl.classList.add('holding');
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(function(){
+      gearEl.classList.remove('holding');
+      openEditor();
+    }, 700);
+  }
+  function cancelHold(){
+    clearTimeout(holdTimer);
+    gearEl.classList.remove('holding');
+  }
+  gearEl.addEventListener('pointerdown', startHold);
+  gearEl.addEventListener('pointerup', cancelHold);
+  gearEl.addEventListener('pointercancel', cancelHold);
+  gearEl.addEventListener('pointerleave', cancelHold);
+
+  /* ---------------- editor ---------------- */
+  var edItems = document.getElementById('edItems');
+  var edBoards = document.getElementById('edBoards');
+  var edName = document.getElementById('edName');
+  var edVoice = document.getElementById('edVoice');
+  var edRate = document.getElementById('edRate');
+
+  function openEditor(){
+    editorEl.hidden = false;
+    document.getElementById('app').style.visibility = 'hidden';
+    renderEditor();
+  }
+  function closeEditor(){
+    editorEl.hidden = true;
+    document.getElementById('app').style.visibility = '';
+    save();
+    renderBoard(0);
+  }
+
+  function renderEditor(){
+    renderBoardChips();
+    edName.value = state.boards[idx].name;
+    renderItems();
+    renderVoiceSelect();
+    edRate.value = state.settings.rate;
+    var hint = document.getElementById('voiceHint');
+    if(!speechOk){
+      hint.textContent = 'Este navegador não tem leitura de voz. No iPhone, use o Safari.';
+    } else if(!ptVoices().length){
+      hint.textContent = 'Nenhuma voz em português encontrada ainda. No iPhone: Ajustes › Acessibilidade › Conteúdo Falado › Vozes › Português (Brasil) e baixe uma voz.';
+    } else {
+      hint.textContent = 'A voz vem do próprio iPhone. Se o som não sair, confira o botão lateral de silencioso e o volume.';
+    }
+  }
+
+  function renderBoardChips(){
+    edBoards.innerHTML = '';
+    state.boards.forEach(function(b, i){
+      var c = document.createElement('button');
+      c.className = 'chip' + (i === idx ? ' on' : '');
+      c.textContent = b.name;
+      c.addEventListener('click', function(){ save(); idx = i; renderEditor(); });
+      edBoards.appendChild(c);
+    });
+    var add = document.createElement('button');
+    add.className = 'chip add';
+    add.textContent = '+ Nova prancha';
+    add.addEventListener('click', function(){
+      state.boards.push({ name:'Nova prancha', items:[] });
+      idx = state.boards.length - 1;
+      save(); renderEditor();
+      editorEl.scrollTop = 0;
+    });
+    edBoards.appendChild(add);
+  }
+
+  function renderItems(){
+    var b = state.boards[idx];
+    edItems.innerHTML = '';
+    if(!b.items.length){
+      var p = document.createElement('p');
+      p.className = 'hint';
+      p.textContent = 'Nenhum botão ainda. Toque em “+ Adicionar botão”.';
+      edItems.appendChild(p);
+    }
+    b.items.forEach(function(it, i){
+      var row = document.createElement('div');
+      row.className = 'item';
+
+      var sw = document.createElement('button');
+      sw.className = 'swatch';
+      sw.style.background = COLORS[it.color] || COLORS.azul;
+      sw.textContent = it.emoji || '🎨';
+      sw.setAttribute('aria-label', 'Cor e figura do botão ' + (it.label || ''));
+      sw.addEventListener('click', function(){ openTileSheet(i); });
+
+      var lines = document.createElement('div');
+      lines.className = 'lines';
+
+      var l1 = document.createElement('input');
+      l1.type = 'text'; l1.value = it.label; l1.placeholder = 'Texto do botão';
+      l1.addEventListener('input', function(){
+        it.label = l1.value.slice(0,30);
+        if(!it.say) l2.placeholder = 'Fala: ' + it.label;
+        save();
+      });
+
+      var l2 = document.createElement('input');
+      l2.type = 'text'; l2.value = it.say === it.label ? '' : it.say;
+      l2.placeholder = 'Fala: ' + (it.label || 'o mesmo texto');
+      l2.addEventListener('input', function(){
+        it.say = l2.value.trim() ? l2.value.slice(0,120) : it.label;
+        save();
+      });
+
+      lines.appendChild(l1); lines.appendChild(l2);
+
+      var acts = document.createElement('div');
+      acts.className = 'acts';
+      acts.appendChild(actBtn('▲', 'Mover para cima', function(){ move(i, -1); }));
+      acts.appendChild(actBtn('▼', 'Mover para baixo', function(){ move(i, 1); }));
+      var rm = actBtn('✕', 'Remover botão', function(){
+        b.items.splice(i,1); save(); renderItems();
+      });
+      rm.className = 'rm';
+      acts.appendChild(rm);
+
+      row.appendChild(sw); row.appendChild(lines); row.appendChild(acts);
+      edItems.appendChild(row);
+    });
+  }
+
+  function actBtn(txt, label, fn){
+    var el = document.createElement('button');
+    el.textContent = txt; el.setAttribute('aria-label', label);
+    el.addEventListener('click', fn);
+    return el;
+  }
+
+  function move(i, d){
+    var items = state.boards[idx].items;
+    var j = i + d;
+    if(j < 0 || j >= items.length) return;
+    var tmp = items[i]; items[i] = items[j]; items[j] = tmp;
+    save(); renderItems();
+  }
+
+  /* folha de cor + figura */
+  function openTileSheet(i){
+    var it = state.boards[idx].items[i];
+    var sheet = document.createElement('div');
+    sheet.className = 'sheet';
+    var inner = document.createElement('div');
+    inner.className = 'inner';
+    inner.innerHTML =
+      '<label class="field"><span>Figura (emoji) — opcional</span>' +
+      '<input type="text" id="shEmoji" maxlength="4" value="' + esc(it.emoji) + '" placeholder="Ex.: 🧸"></label>' +
+      '<span style="display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px">Cor</span>' +
+      '<div class="palette" id="shPal"></div>' +
+      '<div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="shDone">Pronto</button></div>';
+    sheet.appendChild(inner);
+    document.body.appendChild(sheet);
+
+    var pal = inner.querySelector('#shPal');
+    COLOR_KEYS.forEach(function(k){
+      var b = document.createElement('button');
+      b.style.background = COLORS[k];
+      b.setAttribute('aria-label', k);
+      if(it.color === k) b.className = 'on';
+      b.addEventListener('click', function(){
+        it.color = k; save();
+        Array.prototype.forEach.call(pal.children, function(c){ c.className = ''; });
+        b.className = 'on';
+      });
+      pal.appendChild(b);
+    });
+
+    inner.querySelector('#shEmoji').addEventListener('input', function(e){
+      it.emoji = e.target.value.slice(0,4); save();
+    });
+    function done(){ document.body.removeChild(sheet); renderItems(); }
+    inner.querySelector('#shDone').addEventListener('click', done);
+    sheet.addEventListener('click', function(e){ if(e.target === sheet) done(); });
+  }
+
+  function renderVoiceSelect(){
+    var list = ptVoices();
+    if(!list.length) list = voices;
+    edVoice.innerHTML = '';
+    var auto = document.createElement('option');
+    auto.value = ''; auto.textContent = 'Automática (português)';
+    edVoice.appendChild(auto);
+    list.forEach(function(v){
+      var o = document.createElement('option');
+      o.value = v.voiceURI; o.textContent = v.name + ' (' + v.lang + ')';
+      edVoice.appendChild(o);
+    });
+    edVoice.value = state.settings.voiceURI;
+    if(edVoice.value !== state.settings.voiceURI) edVoice.value = '';
+  }
+
+  edName.addEventListener('input', function(){
+    state.boards[idx].name = edName.value.slice(0,40) || 'Prancha';
+    save(); renderBoardChips();
+  });
+  edVoice.addEventListener('change', function(){
+    state.settings.voiceURI = edVoice.value; save();
+  });
+  edRate.addEventListener('input', function(){
+    state.settings.rate = parseFloat(edRate.value); save();
+  });
+  document.getElementById('edTest').addEventListener('click', function(){
+    warmUp(); speak('Oi! Esta é a voz do aplicativo.');
+  });
+  document.getElementById('edAddItem').addEventListener('click', function(){
+    var b = state.boards[idx];
+    b.items.push({ emoji:'', label:'Novo', say:'Novo', color: COLOR_KEYS[b.items.length % COLOR_KEYS.length] });
+    save(); renderItems();
+    edItems.lastChild.scrollIntoView({ block:'center' });
+  });
+  document.getElementById('edDelBoard').addEventListener('click', function(e){
+    var btn = e.currentTarget;
+    if(btn.dataset.armed !== '1'){
+      btn.dataset.armed = '1';
+      btn.textContent = 'Tocar de novo para excluir';
+      setTimeout(function(){ btn.dataset.armed = ''; btn.textContent = 'Excluir prancha'; }, 4000);
+      return;
+    }
+    if(state.boards.length === 1){
+      state.boards = defaults().boards.slice(0,1);
+    } else {
+      state.boards.splice(idx, 1);
+      if(idx >= state.boards.length) idx = state.boards.length - 1;
+    }
+    save(); renderEditor();
+  });
+  document.getElementById('edDone').addEventListener('click', closeEditor);
+
+  document.getElementById('edCopy').addEventListener('click', function(e){
+    var txt = JSON.stringify(state);
+    var btn = e.currentTarget;
+    function ok(){ btn.textContent = 'Copiado!'; setTimeout(function(){ btn.textContent = 'Copiar minhas pranchas'; }, 2000); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(ok, fallback);
+    } else { fallback(); }
+    function fallback(){
+      var box = document.getElementById('edRestoreBox');
+      box.hidden = false;
+      var ta = document.getElementById('edPaste');
+      ta.value = txt; ta.focus(); ta.select();
+      btn.textContent = 'Copie o texto abaixo';
+      setTimeout(function(){ btn.textContent = 'Copiar minhas pranchas'; }, 3000);
+    }
+  });
+  document.getElementById('edRestoreToggle').addEventListener('click', function(){
+    var box = document.getElementById('edRestoreBox');
+    box.hidden = !box.hidden;
+  });
+  document.getElementById('edRestore').addEventListener('click', function(e){
+    var ta = document.getElementById('edPaste');
+    var btn = e.currentTarget;
+    try{
+      var s = sane(JSON.parse(ta.value));
+      if(!s) throw new Error('vazio');
+      state = s; idx = 0; save(); renderEditor();
+      btn.textContent = 'Pranchas restauradas';
+      setTimeout(function(){ btn.textContent = 'Restaurar'; }, 2500);
+    }catch(err){
+      btn.textContent = 'Texto inválido';
+      setTimeout(function(){ btn.textContent = 'Restaurar'; }, 2500);
+    }
+  });
+  document.getElementById('edReset').addEventListener('click', function(e){
+    var btn = e.currentTarget;
+    if(btn.dataset.armed !== '1'){
+      btn.dataset.armed = '1';
+      btn.textContent = 'Tocar de novo para apagar tudo';
+      setTimeout(function(){ btn.dataset.armed = ''; btn.textContent = 'Voltar às pranchas originais'; }, 4000);
+      return;
+    }
+    state = defaults(); idx = 0; save(); renderEditor();
+    btn.dataset.armed = ''; btn.textContent = 'Voltar às pranchas originais';
+  });
+
+  renderBoard(0);
+})();
+</script>
+<!--ARTIFACT-END-->
+</body>
+</html>

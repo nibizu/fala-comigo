@@ -1,0 +1,15 @@
+{
+  "name": "Fala Comigo",
+  "short_name": "Fala Comigo",
+  "description": "Prancha de comunicação alternativa com voz em português.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eceff6",
+  "theme_color": "#eceff6",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
